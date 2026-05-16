@@ -220,6 +220,8 @@ local function buildPlaceholderModel(): Model
 
 	-- ProximityPrompt for Steal Time (Phase E.b). Any other player can hold this
 	-- to drain `StealPerTick` seconds from this pet's age.
+	-- The prompt is *enabled per-client* by a LocalScript so the owner never
+	-- sees their own prompt.
 	local prompt = Instance.new("ProximityPrompt")
 	prompt.Name = "StealPrompt"
 	prompt.ActionText = "Steal Time"

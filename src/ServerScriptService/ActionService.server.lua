@@ -24,6 +24,8 @@ end)
 type State = "idle" | "walk" | "carry"
 local activeState:  { [number]: State } = {}
 local carryWelds:   { [number]: WeldConstraint } = {}
+local leashBeams:   { [number]: Beam } = {}
+local leashAttachs: { [number]: { Attachment } } = {}
 -- Per-victim cooldown across all attackers
 local stealCooldown: { [number]: number } = {}
 
@@ -34,13 +36,57 @@ local function getPet(userId: number): Model?
 end
 
 ----------------------------------------------------------------
--- WALK: follow owner via PathfindingService
+-- WALK: follow owner with a visible leash
 ----------------------------------------------------------------
+local function attachLeash(player: Player, pet: Model)
+	local char = player.Character
+	if not char then return end
+	local body = pet:FindFirstChild("Body") :: BasePart?
+	local hand = char:FindFirstChild("RightHand") :: BasePart?
+	if not body or not hand then return end
+
+	local handAtt = Instance.new("Attachment")
+	handAtt.Name = "LeashAttach_Owner"
+	handAtt.Parent = hand
+
+	local petAtt = Instance.new("Attachment")
+	petAtt.Name = "LeashAttach_Pet"
+	petAtt.Position = Vector3.new(0, body.Size.Y / 2, 0)
+	petAtt.Parent = body
+
+	local beam = Instance.new("Beam")
+	beam.Attachment0 = handAtt
+	beam.Attachment1 = petAtt
+	beam.Width0 = 0.08
+	beam.Width1 = 0.08
+	beam.FaceCamera = true
+	beam.Color = ColorSequence.new(Color3.fromRGB(80, 50, 20))
+	beam.Transparency = NumberSequence.new(0.1)
+	beam.Segments = 4
+	beam.Parent = body
+
+	leashBeams[player.UserId] = beam
+	leashAttachs[player.UserId] = { handAtt, petAtt }
+end
+
+local function detachLeash(userId: number)
+	local beam = leashBeams[userId]
+	if beam then beam:Destroy() end
+	leashBeams[userId] = nil
+	local atts = leashAttachs[userId]
+	if atts then
+		for _, a in ipairs(atts) do a:Destroy() end
+	end
+	leashAttachs[userId] = nil
+end
+
 local function startWalk(player: Player)
 	activeState[player.UserId] = "walk"
+	local pet = getPet(player.UserId)
+	if pet then attachLeash(player, pet) end
 	task.spawn(function()
 		while activeState[player.UserId] == "walk" do
-			local pet = getPet(player.UserId)
+			pet = getPet(player.UserId)
 			local char = player.Character
 			if not pet or not char then break end
 			local petHrp = pet:FindFirstChild("HumanoidRootPart") :: BasePart?
@@ -48,16 +94,17 @@ local function startWalk(player: Player)
 			local ownerHrp = char:FindFirstChild("HumanoidRootPart") :: BasePart?
 			if not petHrp or not petHum or not ownerHrp then break end
 
-			-- Only move if we're more than 6 studs away
-			local dist = (ownerHrp.Position - petHrp.Position).Magnitude
-			if dist > 6 then
+			-- Walk to a position just behind+right of the owner ("at heel")
+			local heel = ownerHrp.CFrame * CFrame.new(2, 0, 3) -- right & behind
+			local dist = (heel.Position - petHrp.Position).Magnitude
+			if dist > 2.5 then
 				local ok, path = pcall(function()
 					local p = PathfindingService:CreatePath({
 						AgentRadius = 2,
 						AgentHeight = 5,
 						AgentCanJump = true,
 					})
-					p:ComputeAsync(petHrp.Position, ownerHrp.Position)
+					p:ComputeAsync(petHrp.Position, heel.Position)
 					return p
 				end)
 				if ok and path and path.Status == Enum.PathStatus.Success then
@@ -67,8 +114,7 @@ local function startWalk(player: Player)
 						petHum.MoveToFinished:Wait()
 					end
 				else
-					-- Fallback: walk straight toward owner
-					petHum:MoveTo(ownerHrp.Position)
+					petHum:MoveTo(heel.Position)
 				end
 			end
 			task.wait(1 / PetConfig.WalkUpdateHz)
@@ -79,9 +125,7 @@ end
 local function stopWalk(player: Player)
 	if activeState[player.UserId] == "walk" then
 		activeState[player.UserId] = "idle"
-		local pet = getPet(player.UserId)
-		local hum = pet and pet:FindFirstChildOfClass("Humanoid")
-		if hum then hum:MoveTo(hum.Parent and (hum.Parent :: any).PrimaryPart.Position or Vector3.zero) end
+		detachLeash(player.UserId)
 	end
 end
 
@@ -100,11 +144,18 @@ local function startCarry(player: Player)
 	-- Disable humanoid movement while carried
 	local hum = pet:FindFirstChildOfClass("Humanoid")
 	if hum then
-		hum:ChangeState(Enum.HumanoidStateType.Physics)
+		hum.PlatformStand = true
 		hum.WalkSpeed = 0
 	end
+	body.CanCollide = false
 
-	body.CFrame = hand.CFrame * CFrame.new(0, 1, 0)
+	-- Stand the pet upright on top of the player's right hand, facing forward
+	-- relative to the hand. The hand's local +Y is "up" through the wrist.
+	local liftY = body.Size.Y / 2 + hand.Size.Y / 2
+	body.CFrame = hand.CFrame
+		* CFrame.new(0, liftY, 0)
+		* CFrame.Angles(0, math.pi, 0) -- face same way as player
+
 	local weld = Instance.new("WeldConstraint")
 	weld.Part0 = body
 	weld.Part1 = hand
@@ -120,9 +171,14 @@ local function stopCarry(player: Player)
 		carryWelds[player.UserId] = nil
 	end
 	local pet = getPet(player.UserId)
-	local hum = pet and pet:FindFirstChildOfClass("Humanoid")
-	if hum then
-		hum.WalkSpeed = PetConfig.WalkSpeed
+	if pet then
+		local body = pet:FindFirstChild("Body") :: BasePart?
+		if body then body.CanCollide = true end
+		local hum = pet:FindFirstChildOfClass("Humanoid")
+		if hum then
+			hum.PlatformStand = false
+			hum.WalkSpeed = PetConfig.WalkSpeed
+		end
 	end
 	activeState[player.UserId] = "idle"
 end
@@ -227,8 +283,10 @@ local function hookPet(model: Instance)
 	local body = model:FindFirstChild("Body")
 	local prompt = body and body:FindFirstChild("StealPrompt") :: ProximityPrompt?
 	if not prompt then return end
+	-- Server-side: ignore self-triggers. (Client also hides the prompt for
+	-- the owner via HideOwnStealPrompt.client.lua.)
 	prompt.Triggered:Connect(function(playerWhoTriggered)
-		if playerWhoTriggered.UserId == ownerId then return end -- can't steal from yourself
+		if playerWhoTriggered.UserId == ownerId then return end
 		tryTransfer(playerWhoTriggered.UserId, ownerId, PetConfig.StealPerTick)
 	end)
 end
