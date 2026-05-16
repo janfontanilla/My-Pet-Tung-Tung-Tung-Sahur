@@ -154,13 +154,28 @@ local function buildPlaceholderModel(): Model
 
 	local body: BasePart
 	if hasMesh then
-		local mesh = Instance.new("MeshPart")
-		mesh.MeshId = PetConfig.PetMeshId
-		if type(PetConfig.PetTextureId) == "string" and PetConfig.PetTextureId ~= "rbxassetid://0" then
-			mesh.TextureID = PetConfig.PetTextureId
+		-- MeshId can no longer be written to an Instance.new("MeshPart") at
+		-- runtime (NotAccessible capability). Use AssetService instead, which
+		-- creates a MeshPart with the mesh baked in.
+		local ok, mesh = pcall(function()
+			return game:GetService("AssetService"):CreateMeshPartAsync(PetConfig.PetMeshId)
+		end)
+		if ok and mesh then
+			if type(PetConfig.PetTextureId) == "string" and PetConfig.PetTextureId ~= "rbxassetid://0" then
+				pcall(function() (mesh :: any).TextureID = PetConfig.PetTextureId end)
+			end
+			-- Scale around the mesh's natural size
+			mesh.Size = mesh.Size * PetConfig.PetScale
+			body = mesh
+		else
+			-- Fallback: gray placeholder if the asset failed to load
+			warn("[PetService] CreateMeshPartAsync failed for", PetConfig.PetMeshId, "- falling back to placeholder")
+			local part = Instance.new("Part")
+			part.Size = Vector3.new(4, 5, 3)
+			part.Material = Enum.Material.Slate
+			part.Color = Color3.fromRGB(110, 110, 110)
+			body = part
 		end
-		mesh.Size = PetConfig.PetScale * 5 -- nominal sizing; tune per-asset
-		body = mesh
 	else
 		body = Instance.new("Part")
 		body.Size = Vector3.new(4, 5, 3)
