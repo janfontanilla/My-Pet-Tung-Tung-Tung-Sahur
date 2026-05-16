@@ -42,17 +42,29 @@ Catalog.Faces = {
 }
 
 ----------------------------------------------------------------
--- Hats (Reference 08) — replace `accessory` with real asset IDs
+-- Hats (Reference 08)
+-- `accessory` is a Roblox *Asset ID* (a model containing a hat mesh).
+-- PetService:applyVisuals calls InsertService:LoadAsset, finds the first
+-- MeshPart inside the loaded tree, clones + welds it to the pet's
+-- HatAttachment. Toolbox hat asset IDs work directly.
+-- Format: "rbxassetid://<id>"  (or leave "rbxassetid://0" to disable)
 ----------------------------------------------------------------
 Catalog.Hats = {
 	{ id = "none",            name = "None",           accessory = nil },
-	{ id = "cowboy",          name = "Cowboy",         accessory = "rbxassetid://0" },
+	{ id = "top_hat",         name = "Top Hat",        accessory = "rbxassetid://11870310728" },
+	{ id = "party_hat",       name = "Party Hat",      accessory = "rbxassetid://14695628027" },
+	{ id = "cowboy",          name = "Cowboy",         accessory = "rbxassetid://17075928250" },
+	{ id = "fedora",          name = "Fedora",         accessory = "rbxassetid://48181949" },
+	{ id = "chef",            name = "Chef",           accessory = "rbxassetid://7184746056" },
+	{ id = "pirate",          name = "Pirate Hat",     accessory = "rbxassetid://16965440" },
+	{ id = "cone",            name = "Cone",           accessory = "rbxassetid://14639265964" },
+	{ id = "chicken",         name = "Chicken",        accessory = "rbxassetid://14535334140" },
+	{ id = "king",            name = "King",           accessory = "rbxassetid://13484479112" },
 	{ id = "santa",           name = "Santa",          accessory = "rbxassetid://0" },
 	{ id = "viking",          name = "Viking",         accessory = "rbxassetid://0" },
 	{ id = "red_cap",         name = "Red Cap",        accessory = "rbxassetid://0" },
 	{ id = "glasses_3d",      name = "3D Glasses",     accessory = "rbxassetid://0" },
 	{ id = "shutter_shades",  name = "Shutter Shades", accessory = "rbxassetid://0" },
-	{ id = "pirate",          name = "Pirate Hat",     accessory = "rbxassetid://0" },
 	{ id = "crown",           name = "Crown",          accessory = "rbxassetid://0" },
 	{ id = "headphones",      name = "Headphones",     accessory = "rbxassetid://0" },
 	{ id = "nerd_glasses",    name = "Nerd Glasses",   accessory = "rbxassetid://0" },

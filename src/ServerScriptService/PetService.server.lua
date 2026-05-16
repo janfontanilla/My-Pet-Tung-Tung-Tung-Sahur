@@ -306,13 +306,48 @@ local function applyVisuals(model: Model, rec: PetRecord, ownerName: string)
 		decal.Texture = faceEntry.decal
 	end
 
-	-- Hat: clear any existing accessory clones, attach the new one if not "none"
+	-- Hat: remove any existing hat, then attach the new one.
 	for _, child in ipairs(model:GetChildren()) do
-		if child:IsA("Accessory") or (child:IsA("Model") and child.Name == "HatModel") then
-			child:Destroy()
+		if child.Name == "HatMesh" then child:Destroy() end
+	end
+	local hatEntry = Catalog.HatById[rec.hatId]
+	if hatEntry and type(hatEntry.accessory) == "string" and hatEntry.accessory ~= ""
+		and hatEntry.accessory ~= "rbxassetid://0" then
+		local idNum = tonumber(string.match(hatEntry.accessory, "%d+"))
+		if idNum then
+			local ok, loaded = pcall(function()
+				return game:GetService("InsertService"):LoadAsset(idNum)
+			end)
+			if ok and loaded then
+				local mesh: BasePart? = nil
+				for _, d in ipairs(loaded:GetDescendants()) do
+					if d:IsA("MeshPart") or d:IsA("Part") then
+						mesh = d :: BasePart
+						if d:IsA("MeshPart") then break end
+					end
+				end
+				if mesh then
+					local hatPart = mesh:Clone()
+					hatPart.Name = "HatMesh"
+					hatPart.Anchored = false
+					hatPart.CanCollide = false
+					hatPart.Massless = true
+					local hatAttachInBody = body:FindFirstChild("HatAttachment") :: Attachment?
+					if hatAttachInBody then
+						hatPart.CFrame = hatAttachInBody.WorldCFrame
+					else
+						hatPart.CFrame = body.CFrame * CFrame.new(0, body.Size.Y / 2 + hatPart.Size.Y / 2, 0)
+					end
+					hatPart.Parent = model
+					local w = Instance.new("WeldConstraint")
+					w.Part0 = hatPart
+					w.Part1 = body
+					w.Parent = hatPart
+				end
+				loaded:Destroy()
+			end
 		end
 	end
-	-- Real accessory wiring happens once asset IDs are filled in.
 
 	-- Billboard text + visibility
 	local bb = body:FindFirstChild("InfoBillboard") :: BillboardGui?
