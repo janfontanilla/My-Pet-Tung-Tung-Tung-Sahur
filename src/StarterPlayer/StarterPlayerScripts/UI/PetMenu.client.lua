@@ -13,7 +13,6 @@ local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui") :: PlayerGui
 
 local TILES = {
-	{ id = "faces",   label = "Faces"   },
 	{ id = "name",    label = "Name"    },
 	{ id = "color",   label = "Color"   },
 	{ id = "actions", label = "Actions" },
