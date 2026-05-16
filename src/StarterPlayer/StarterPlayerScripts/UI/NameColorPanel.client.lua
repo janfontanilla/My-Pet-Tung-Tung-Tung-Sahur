@@ -16,7 +16,7 @@ local _gui, body = PanelBase.create("color", "Color")
 -- Color swatch grid
 local swatches = Instance.new("Frame")
 swatches.Position = UDim2.fromOffset(0, 0)
-swatches.Size = UDim2.new(1, -110, 0, 220)
+swatches.Size = UDim2.new(1, 0, 0, 220)
 swatches.BackgroundTransparency = 1
 swatches.Parent = body
 
@@ -42,21 +42,3 @@ for i, entry in ipairs(Catalog.Colors) do
 	end)
 end
 
--- HIDE toggle (hides the Age + name billboard above Tung)
-local hide = Instance.new("TextButton")
-hide.AnchorPoint = Vector2.new(1, 0)
-hide.Position = UDim2.new(1, 0, 0, 0)
-hide.Size = UDim2.fromOffset(100, 100)
-hide.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-hide.Font = Enum.Font.FredokaOne
-hide.TextScaled = true
-hide.TextColor3 = Color3.new(1, 1, 1)
-hide.Text = "HIDE"
-hide.Parent = body
-local hideCorner = Instance.new("UICorner")
-hideCorner.CornerRadius = UDim.new(0, 12)
-hideCorner.Parent = hide
-
-hide.Activated:Connect(function()
-	Remotes.event("ToggleHideName"):FireServer()
-end)
