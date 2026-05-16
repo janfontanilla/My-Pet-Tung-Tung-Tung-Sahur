@@ -347,12 +347,11 @@ local function onPlayerAdded(player: Player)
 		provision()
 	end
 
-	-- First-spawn name modal: if no name on record, ask the client.
-	if rec.name == "" then
-		task.defer(function()
-			Remotes.event("RequestName"):FireClient(player)
-		end)
-	end
+	-- Show the name modal on every server join. Client receives the
+	-- current saved name as a prefill so the user can just hit OK to keep it.
+	task.defer(function()
+		Remotes.event("RequestName"):FireClient(player, rec.name)
+	end)
 end
 
 local function onPlayerRemoving(player: Player)

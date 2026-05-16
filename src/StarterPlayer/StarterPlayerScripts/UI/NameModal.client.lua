@@ -103,8 +103,8 @@ input.FocusLost:Connect(function(enterPressed)
 	if enterPressed then submit() end
 end)
 
-Remotes.event("RequestName").OnClientEvent:Connect(function()
-	input.Text = ""
+Remotes.event("RequestName").OnClientEvent:Connect(function(currentName)
+	input.Text = (typeof(currentName) == "string") and currentName or ""
 	gui.Enabled = true
 	input:CaptureFocus()
 end)
