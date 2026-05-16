@@ -311,52 +311,73 @@ local function applyVisuals(model: Model, rec: PetRecord, ownerName: string)
 		if child.Name == "HatMesh" then child:Destroy() end
 	end
 	local hatEntry = Catalog.HatById[rec.hatId]
-	if hatEntry and type(hatEntry.accessory) == "string" and hatEntry.accessory ~= ""
-		and hatEntry.accessory ~= "rbxassetid://0" then
-		local idNum = tonumber(string.match(hatEntry.accessory, "%d+"))
-		if idNum then
-			local ok, loadedOrErr = pcall(function()
-				return game:GetService("InsertService"):LoadAsset(idNum)
-			end)
-			if not ok then
-				warn("[PetService] LoadAsset failed for hat", hatEntry.id, "(id", idNum, "):", loadedOrErr)
-			else
-				local loaded = loadedOrErr :: Instance
-				-- Find a MeshPart anywhere in the tree (Accessory > Handle is
-				-- usually a MeshPart; some uploads put it under a Model)
-				local mesh: BasePart? = nil
-				for _, d in ipairs(loaded:GetDescendants()) do
-					if d:IsA("MeshPart") then mesh = d :: BasePart; break end
+	if hatEntry and hatEntry.id ~= "none" then
+		-- Look for a pre-imported template under ReplicatedStorage.Assets.Hats
+		-- named the same as the catalog id. Falls back to InsertService for
+		-- assets the place owner actually owns.
+		local hatTemplate: Instance? = nil
+		local hatsFolder = game:GetService("ReplicatedStorage")
+			:FindFirstChild("Assets") and game:GetService("ReplicatedStorage").Assets:FindFirstChild("Hats")
+		if hatsFolder then
+			hatTemplate = hatsFolder:FindFirstChild(hatEntry.id)
+		end
+
+		if not hatTemplate
+			and type(hatEntry.accessory) == "string"
+			and hatEntry.accessory ~= ""
+			and hatEntry.accessory ~= "rbxassetid://0"
+		then
+			local idNum = tonumber(string.match(hatEntry.accessory, "%d+"))
+			if idNum then
+				local ok, loadedOrErr = pcall(function()
+					return game:GetService("InsertService"):LoadAsset(idNum)
+				end)
+				if not ok then
+					warn("[PetService] LoadAsset failed for hat", hatEntry.id, "(id", idNum, "):", loadedOrErr,
+						"-- drop the model into ReplicatedStorage.Assets.Hats named '" .. hatEntry.id .. "' to fix")
+				else
+					hatTemplate = loadedOrErr :: Instance
 				end
-				if not mesh then
-					for _, d in ipairs(loaded:GetDescendants()) do
+			end
+		end
+
+		if hatTemplate then
+			local mesh: BasePart? = nil
+			for _, d in ipairs(hatTemplate:GetDescendants()) do
+				if d:IsA("MeshPart") then mesh = d :: BasePart; break end
+			end
+			if not mesh then
+				if hatTemplate:IsA("BasePart") then
+					mesh = hatTemplate :: BasePart
+				else
+					for _, d in ipairs(hatTemplate:GetDescendants()) do
 						if d:IsA("BasePart") then mesh = d :: BasePart; break end
 					end
 				end
-				if mesh then
-					local hatPart = mesh:Clone()
-					hatPart.Name = "HatMesh"
-					hatPart.Anchored = false
-					hatPart.CanCollide = false
-					hatPart.Massless = true
-					-- Scale down hats to fit a small pet head (Roblox hats are
-					-- sized for ~5-stud avatar heads; Tung's head is bigger so
-					-- we leave them at native size for now and let user tune)
-					local hatAttachInBody = body:FindFirstChild("HatAttachment") :: Attachment?
-					if hatAttachInBody then
-						hatPart.CFrame = hatAttachInBody.WorldCFrame
-					else
-						hatPart.CFrame = body.CFrame * CFrame.new(0, body.Size.Y / 2 + hatPart.Size.Y / 2, 0)
-					end
-					hatPart.Parent = model
-					local w = Instance.new("WeldConstraint")
-					w.Part0 = hatPart
-					w.Part1 = body
-					w.Parent = hatPart
+			end
+			if mesh then
+				local hatPart = mesh:Clone()
+				hatPart.Name = "HatMesh"
+				hatPart.Anchored = false
+				hatPart.CanCollide = false
+				hatPart.Massless = true
+				local hatAttachInBody = body:FindFirstChild("HatAttachment") :: Attachment?
+				if hatAttachInBody then
+					hatPart.CFrame = hatAttachInBody.WorldCFrame
 				else
-					warn("[PetService] No BasePart found in loaded asset for hat", hatEntry.id)
+					hatPart.CFrame = body.CFrame * CFrame.new(0, body.Size.Y / 2 + hatPart.Size.Y / 2, 0)
 				end
-				loaded:Destroy()
+				hatPart.Parent = model
+				local w = Instance.new("WeldConstraint")
+				w.Part0 = hatPart
+				w.Part1 = body
+				w.Parent = hatPart
+			else
+				warn("[PetService] No BasePart found in template for hat", hatEntry.id)
+			end
+			-- Only destroy if we created the tree (InsertService); not if it's a child of ReplicatedStorage
+			if hatTemplate.Parent and not hatTemplate:IsDescendantOf(game:GetService("ReplicatedStorage")) then
+				hatTemplate:Destroy()
 			end
 		end
 	end
