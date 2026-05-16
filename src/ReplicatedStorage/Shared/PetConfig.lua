@@ -10,7 +10,7 @@ PetConfig.PetTextureId = "rbxassetid://0" -- TODO_TUNG_TEXTURE_ID (optional)
 PetConfig.PetScale     = Vector3.new(1, 1, 1)
 
 -- Spawning
-PetConfig.SpawnOffset = Vector3.new(4, 2, 0) -- relative to owner's HumanoidRootPart
+PetConfig.SpawnOffset = Vector3.new(4, -1, 0) -- relative to owner's HumanoidRootPart
 
 -- Locomotion
 PetConfig.WalkSpeed     = 14   -- studs/sec while WALK action is active
