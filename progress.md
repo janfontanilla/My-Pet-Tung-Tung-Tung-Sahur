@@ -11,6 +11,8 @@ Onboarding for new contributors / future Claude sessions: [ONBOARDING.md](ONBOAR
 
 - **Current phase:** Phase C — Right-side 6-tile PetMenu UI
 - **Last updated:** 2026-05-15
+- **Verified in Studio:** Phase B works end-to-end. Pet "Chi Chai" spawned, age timer ticking.
+- **Phase B.5 (in this commit):** pet is now a hotbar Tool ("Pet"). Press 1 to equip → pet spawns. Unequip → pet despawns. Age (wall-clock) keeps ticking regardless.
 - **Next action:** Build `PetMenu.client.lua` (the right-edge column with Faces / Name / Color / Actions / Admin / Hats tiles + the single-panel-open controller).
 - **GitHub:** https://github.com/janfontanilla/My-Pet-Tung-Tung-Tung-Sahur — push at end of every phase.
 - **Map:** Suburban Streets preset. Create the place via Studio → File → New → Suburban Streets → Save to Roblox As… "My Pet Tung Tung Tung Sahur". Rojo's `default.project.json` uses `$ignoreUnknownInstances` so syncing won't disturb the map.

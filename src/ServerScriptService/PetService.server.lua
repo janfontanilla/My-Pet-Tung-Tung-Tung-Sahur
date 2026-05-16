@@ -25,8 +25,10 @@ local PetService = {}
 
 -- userId -> live record (mirrors DataStore between saves)
 local liveRecords: { [number]: PetRecord } = {}
--- userId -> spawned Model in workspace.Pets
+-- userId -> spawned Model in workspace.Pets (only present while tool is equipped)
 local liveModels:  { [number]: Model } = {}
+-- userId -> the summon Tool in the player's Backpack
+local liveTools:   { [number]: Tool } = {}
 
 export type PetRecord = {
 	name: string,
@@ -241,8 +243,17 @@ end
 PetService.applyVisuals = applyVisuals
 
 local function spawnPetForPlayer(player: Player, rec: PetRecord)
-	local char = player.Character or player.CharacterAdded:Wait()
-	local hrp = char:WaitForChild("HumanoidRootPart") :: BasePart
+	-- Despawn any existing instance first (e.g. re-equip)
+	local existing = liveModels[player.UserId]
+	if existing then
+		existing:Destroy()
+		liveModels[player.UserId] = nil
+	end
+
+	local char = player.Character
+	if not char then return end
+	local hrp = char:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if not hrp then return end
 
 	local model = buildPlaceholderModel()
 	model.Name = "Pet_" .. player.UserId
@@ -252,6 +263,55 @@ local function spawnPetForPlayer(player: Player, rec: PetRecord)
 
 	liveModels[player.UserId] = model
 	applyVisuals(model, rec, player.Name)
+end
+
+local function despawnPetForPlayer(userId: number)
+	local model = liveModels[userId]
+	if model then
+		model:Destroy()
+	end
+	liveModels[userId] = nil
+end
+
+local function buildSummonTool(): Tool
+	local tool = Instance.new("Tool")
+	tool.Name = "Pet"
+	tool.RequiresHandle = true
+	tool.CanBeDropped = false
+	tool.ToolTip = "Summon your pet (press 1)"
+
+	local handle = Instance.new("Part")
+	handle.Name = "Handle"
+	handle.Size = Vector3.new(1, 1, 1)
+	handle.Material = Enum.Material.Slate
+	handle.Color = Color3.fromRGB(110, 110, 110)
+	handle.TopSurface = Enum.SurfaceType.Smooth
+	handle.BottomSurface = Enum.SurfaceType.Smooth
+	handle.Parent = tool
+
+	return tool
+end
+
+local function giveSummonTool(player: Player)
+	-- Remove any stale instance (re-spawn case)
+	local existing = liveTools[player.UserId]
+	if existing then
+		existing:Destroy()
+	end
+
+	local tool = buildSummonTool()
+	tool.Parent = player:WaitForChild("Backpack")
+	liveTools[player.UserId] = tool
+
+	tool.Equipped:Connect(function()
+		local rec = liveRecords[player.UserId]
+		if rec then
+			spawnPetForPlayer(player, rec)
+		end
+	end)
+	tool.Unequipped:Connect(function()
+		despawnPetForPlayer(player.UserId)
+	end)
 end
 
 ----------------------------------------------------------------
@@ -277,11 +337,14 @@ local function onPlayerAdded(player: Player)
 	local rec = loadRecord(player.UserId)
 	liveRecords[player.UserId] = rec
 
-	player.CharacterAdded:Connect(function()
-		spawnPetForPlayer(player, rec)
-	end)
+	-- Give the summon Tool every time the character (re)spawns. Backpack
+	-- contents reset on death/respawn so we re-add it.
+	local function provision()
+		giveSummonTool(player)
+	end
+	player.CharacterAdded:Connect(provision)
 	if player.Character then
-		spawnPetForPlayer(player, rec)
+		provision()
 	end
 
 	-- First-spawn name modal: if no name on record, ask the client.
@@ -298,11 +361,12 @@ local function onPlayerRemoving(player: Player)
 		saveRecord(player.UserId, rec)
 	end
 	liveRecords[player.UserId] = nil
-	local model = liveModels[player.UserId]
-	if model then
-		model:Destroy()
+	despawnPetForPlayer(player.UserId)
+	local tool = liveTools[player.UserId]
+	if tool then
+		tool:Destroy()
 	end
-	liveModels[player.UserId] = nil
+	liveTools[player.UserId] = nil
 end
 
 Players.PlayerAdded:Connect(onPlayerAdded)
