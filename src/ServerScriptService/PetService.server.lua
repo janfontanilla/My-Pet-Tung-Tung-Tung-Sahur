@@ -215,7 +215,9 @@ local function buildPlaceholderModel(): Model
 
 	local hatAttach = Instance.new("Attachment")
 	hatAttach.Name = "HatAttachment"
-	hatAttach.Position = Vector3.new(0, body.Size.Y / 2, 0)
+	-- Tune for the Tung mesh: nudge right to center on his head, lower onto
+	-- his scalp instead of floating above. Adjust here if hats look off.
+	hatAttach.Position = Vector3.new(0.3, body.Size.Y / 2 - 0.4, 0)
 	hatAttach.Parent = body
 
 	-- ProximityPrompt for Steal Time (Phase E.b). Any other player can hold this
