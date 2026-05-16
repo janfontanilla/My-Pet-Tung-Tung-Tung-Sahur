@@ -142,16 +142,32 @@ local function ensurePetsFolder(): Folder
 end
 
 local function buildPlaceholderModel(): Model
-	-- Stand-in until the real Tung Tung Tung Sahur mesh is uploaded.
-	-- Single Part with a default Decal slot called "FaceDecal" + a HatAttachment.
+	-- If PetConfig.PetMeshId is filled in, use a MeshPart with that asset.
+	-- Otherwise fall back to a gray Slate placeholder so the game is playable
+	-- before any asset upload.
 	local model = Instance.new("Model")
 	model.Name = "Pet"
 
-	local body = Instance.new("Part")
+	local hasMesh = type(PetConfig.PetMeshId) == "string"
+		and PetConfig.PetMeshId ~= ""
+		and PetConfig.PetMeshId ~= "rbxassetid://0"
+
+	local body: BasePart
+	if hasMesh then
+		local mesh = Instance.new("MeshPart")
+		mesh.MeshId = PetConfig.PetMeshId
+		if type(PetConfig.PetTextureId) == "string" and PetConfig.PetTextureId ~= "rbxassetid://0" then
+			mesh.TextureID = PetConfig.PetTextureId
+		end
+		mesh.Size = PetConfig.PetScale * 5 -- nominal sizing; tune per-asset
+		body = mesh
+	else
+		body = Instance.new("Part")
+		body.Size = Vector3.new(4, 5, 3)
+		body.Material = Enum.Material.Slate
+		body.Color = Color3.fromRGB(110, 110, 110)
+	end
 	body.Name = "Body"
-	body.Size = Vector3.new(4, 5, 3)
-	body.Material = Enum.Material.Slate
-	body.Color = Color3.fromRGB(110, 110, 110)
 	body.Anchored = false
 	body.CanCollide = true
 	body.TopSurface = Enum.SurfaceType.Smooth
@@ -169,6 +185,38 @@ local function buildPlaceholderModel(): Model
 	hatAttach.Name = "HatAttachment"
 	hatAttach.Position = Vector3.new(0, body.Size.Y / 2, 0)
 	hatAttach.Parent = body
+
+	-- ProximityPrompt for Steal Time (Phase E.b). Any other player can hold this
+	-- to drain `StealPerTick` seconds from this pet's age.
+	local prompt = Instance.new("ProximityPrompt")
+	prompt.Name = "StealPrompt"
+	prompt.ActionText = "Steal Time"
+	prompt.ObjectText = "Pet"
+	prompt.HoldDuration = PetConfig.StealHoldSeconds
+	prompt.MaxActivationDistance = 10
+	prompt.RequiresLineOfSight = false
+	prompt.Parent = body
+
+	-- Humanoid + HumanoidRootPart so the pet can be moved by PathfindingService.
+	local hrp = Instance.new("Part")
+	hrp.Name = "HumanoidRootPart"
+	hrp.Size = Vector3.new(2, 2, 1)
+	hrp.Transparency = 1
+	hrp.CanCollide = false
+	hrp.Massless = true
+	hrp.Parent = model
+
+	local weld = Instance.new("WeldConstraint")
+	weld.Part0 = hrp
+	weld.Part1 = body
+	weld.Parent = hrp
+	hrp.CFrame = body.CFrame
+
+	local humanoid = Instance.new("Humanoid")
+	humanoid.RigType = Enum.HumanoidRigType.R15
+	humanoid.WalkSpeed = PetConfig.WalkSpeed
+	humanoid.AutoRotate = true
+	humanoid.Parent = model
 
 	-- Floating UI: Age + Name billboard
 	local bb = Instance.new("BillboardGui")
@@ -275,10 +323,10 @@ end
 
 local function buildSummonTool(): Tool
 	local tool = Instance.new("Tool")
-	tool.Name = "Pet"
+	tool.Name = "Tung Tung Tung Sahur"
 	tool.RequiresHandle = true
 	tool.CanBeDropped = false
-	tool.ToolTip = "Summon your pet (press 1)"
+	tool.ToolTip = "Summon your Tung Tung Tung Sahur (press 1)"
 
 	local handle = Instance.new("Part")
 	handle.Name = "Handle"
@@ -390,6 +438,52 @@ Remotes.event("SetName").OnServerEvent:Connect(function(player, raw)
 	end
 end)
 
+Remotes.event("SetColor").OnServerEvent:Connect(function(player, colorId)
+	local rec = liveRecords[player.UserId]
+	if not rec then return end
+	if type(colorId) ~= "string" then return end
+	if not Catalog.ColorById[colorId] then return end
+	rec.colorId = colorId
+	local model = liveModels[player.UserId]
+	if model then
+		applyVisuals(model, rec, player.Name)
+	end
+end)
+
+Remotes.event("SetFace").OnServerEvent:Connect(function(player, faceId)
+	local rec = liveRecords[player.UserId]
+	if not rec then return end
+	if type(faceId) ~= "string" then return end
+	if not Catalog.FaceById[faceId] then return end
+	rec.faceId = faceId
+	local model = liveModels[player.UserId]
+	if model then
+		applyVisuals(model, rec, player.Name)
+	end
+end)
+
+Remotes.event("SetHat").OnServerEvent:Connect(function(player, hatId)
+	local rec = liveRecords[player.UserId]
+	if not rec then return end
+	if type(hatId) ~= "string" then return end
+	if not Catalog.HatById[hatId] then return end
+	rec.hatId = hatId
+	local model = liveModels[player.UserId]
+	if model then
+		applyVisuals(model, rec, player.Name)
+	end
+end)
+
+Remotes.event("ToggleHideName").OnServerEvent:Connect(function(player)
+	local rec = liveRecords[player.UserId]
+	if not rec then return end
+	rec.hideName = not rec.hideName
+	local model = liveModels[player.UserId]
+	if model then
+		applyVisuals(model, rec, player.Name)
+	end
+end)
+
 Remotes.func("GetPetState").OnServerInvoke = function(player)
 	local rec = liveRecords[player.UserId]
 	if not rec then return nil end
@@ -449,4 +543,5 @@ game:BindToClose(function()
 	end
 end)
 
-return PetService
+-- Publish for other server scripts (ActionService, AdminService)
+_G.PetService = PetService
