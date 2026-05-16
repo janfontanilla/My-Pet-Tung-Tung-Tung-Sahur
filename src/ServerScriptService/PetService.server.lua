@@ -154,22 +154,39 @@ local function buildPlaceholderModel(): Model
 
 	local body: BasePart
 	if hasMesh then
-		-- MeshId can no longer be written to an Instance.new("MeshPart") at
-		-- runtime (NotAccessible capability). Use AssetService instead, which
-		-- creates a MeshPart with the mesh baked in.
-		local ok, mesh = pcall(function()
-			return game:GetService("AssetService"):CreateMeshPartAsync(PetConfig.PetMeshId)
-		end)
-		if ok and mesh then
-			if type(PetConfig.PetTextureId) == "string" and PetConfig.PetTextureId ~= "rbxassetid://0" then
-				pcall(function() (mesh :: any).TextureID = PetConfig.PetTextureId end)
+		-- PetConfig.PetMeshId is expected to be an *asset* id pointing at a
+		-- Model that contains the Tung Tung Tung Sahur mesh. InsertService
+		-- loads the model and we grab the first MeshPart inside.
+		local idNum = tonumber(string.match(PetConfig.PetMeshId, "%d+"))
+		local ok, loaded
+		if idNum then
+			ok, loaded = pcall(function()
+				return game:GetService("InsertService"):LoadAsset(idNum)
+			end)
+		end
+
+		local found: BasePart?
+		if ok and loaded then
+			-- Walk the loaded tree, find the first BasePart (MeshPart preferred)
+			for _, desc in ipairs(loaded:GetDescendants()) do
+				if desc:IsA("MeshPart") or desc:IsA("Part") then
+					found = desc
+					if desc:IsA("MeshPart") then break end
+				end
 			end
-			-- Scale around the mesh's natural size
+		end
+
+		if found then
+			-- Clone so the original loaded model can be discarded
+			local mesh = found:Clone()
+			mesh.Anchored = false
+			mesh.CanCollide = true
+			mesh.Massless = false
 			mesh.Size = mesh.Size * PetConfig.PetScale
 			body = mesh
+			if loaded then loaded:Destroy() end
 		else
-			-- Fallback: gray placeholder if the asset failed to load
-			warn("[PetService] CreateMeshPartAsync failed for", PetConfig.PetMeshId, "- falling back to placeholder")
+			warn("[PetService] Could not find a MeshPart inside asset", PetConfig.PetMeshId, "- using placeholder")
 			local part = Instance.new("Part")
 			part.Size = Vector3.new(4, 5, 3)
 			part.Material = Enum.Material.Slate
