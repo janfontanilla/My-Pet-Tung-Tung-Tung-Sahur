@@ -4,73 +4,95 @@ Live status log for the Roblox reskin of *My Pet Rock*. Update this file at the 
 
 Plan reference: [PLAN.md](PLAN.md)
 Onboarding for new contributors / future Claude sessions: [ONBOARDING.md](ONBOARDING.md)
+GitHub: https://github.com/janfontanilla/My-Pet-Tung-Tung-Tung-Sahur
 
 ---
 
 ## Status snapshot
 
-- **Current phase:** Phase G — awaiting Tung Tung Tung Sahur mesh asset ID
-- **Last updated:** 2026-05-15
-- **Verified in Studio:** Phase B (Chi Chai pet spawning, age ticking, persistence). Phases C–F not yet verified; sync and playtest.
-- **Phase G remaining step (user action):** find a Tung Tung Tung Sahur model on the Roblox Toolbox (Studio → Toolbox → Models → search "Tung Tung Tung Sahur"). Insert it into Workspace, right-click the MeshPart → Save to Roblox → copy the asset ID. Paste it into `src/ReplicatedStorage/Shared/PetConfig.lua` as `PetMeshId = "rbxassetid://<id>"`. Optional: same for texture. The pet swaps automatically next time you press Play.
-- **Next action:** Build `PetMenu.client.lua` (the right-edge column with Faces / Name / Color / Actions / Admin / Hats tiles + the single-panel-open controller).
-- **GitHub:** https://github.com/janfontanilla/My-Pet-Tung-Tung-Tung-Sahur — push at end of every phase.
-- **Map:** Suburban Streets preset. Create the place via Studio → File → New → Suburban Streets → Save to Roblox As… "My Pet Tung Tung Tung Sahur". Rojo's `default.project.json` uses `$ignoreUnknownInstances` so syncing won't disturb the map.
+- **Current phase:** Hat import + polish
+- **Last updated:** 2026-05-15 (end of session)
+- **Tomorrow's next action:** in Studio, import the remaining 11 hats into `ReplicatedStorage.Assets.Hats` (rename each one to the catalog id). Verify HatAttachment offset (`(0.3, body.Size.Y/2 - 0.4, 0)`) looks right on Chef; tweak in PetService if not.
+- **Map:** Suburban Streets template, saved as "My Pet Tung Tung Tung Sahur" on the user's Roblox account.
+- **Pet mesh:** Tung Tung Tung Sahur, asset id `138151705692565`, loaded via `InsertService:LoadAsset` (works because the user can load it — public/free).
+
+## What's working in-game
+
+- Hotbar Tool "Tung Tung Tung Sahur" (press 1 = spawn, press 1 again = despawn).
+- Wall-clock age billboard above Tung; accrues offline; persists via DataStore key `pet_<userId>`.
+- Name modal on every server join, prefilled with current name. **Note:** Name *tile* on the right-side menu was removed per user request, but the modal flow still fires on join. Server still handles `SetName` remote. Removing the modal too is a TODO if we don't want any naming at all.
+- Right-side menu — **4 tiles** (Color / Actions / Admin / Hats). Single-panel-open behavior, active highlight.
+- Color panel — 10 swatches. Tints Tung via a `Highlight` instance (semitransparent fill) since MeshPart.TextureID overrides Color. White swatch disables the tint.
+- Actions panel — WALK auto-engages on equip; CARRY toggle.
+- Walk: LinearVelocity + AlignOrientation drive Tung toward a "heel" position (2 right, 3 behind owner). Stepping animation (nod ~10°, sway ~6°) + step sound on each downbeat. Leash beam from owner's RightHand to Tung's head.
+- Carry: Motor6D anchored to player's HumanoidRootPart (not RightHand — hand twists with animation). Sits 1.5 right of HRP, slightly above shoulder, facing forward.
+- Steal Time: ProximityPrompt on every pet body. Owner's prompt is hidden client-side. Server-side ignores self-triggers. Per-victim cooldown. Offline-victim support via `applyAgeDeltaOffline` (DataStore UpdateAsync).
+- Admin panel — clicking any ability prompts purchase if `hasAdmin` is false. ProcessReceipt sets `hasAdmin=true`. Four abilities: invisible, +10 speed, pull_out_all (5 clones), steal_all (AOE).
+
+## What's NOT yet working / needs your action
+
+- **Hats** — code complete. Currently only **Chef Hat** is imported into `ReplicatedStorage.Assets.Hats.chef`. Need to import the other 11 (top_hat, party_hat, cowboy, fedora, pirate, cone, chicken, king, money, ice_cream, squid).
+  - Recipe: Window → Explorer; click `ReplicatedStorage.Assets.Hats` in Explorer; click hat tile in Toolbox; drag from Workspace to `Hats` folder if needed; right-click → Rename → exact catalog id; Ctrl+S.
+- **HatAttachment offset** — Chef sits slightly left + a bit high. Latest commit nudges `+0.3` X and `-0.4` Y. Verify next session and tune further if needed.
+- **Admin Pack purchase** — `Catalog.AdminProductId = 0`. Need to create the Developer Product in **File → Game Settings → Monetization → Developer Products → Create New** (Admin Pack, price 9999), then paste the product id into Catalog.
+- **Steal Time visual feedback** — silent right now. Could add a floating "+1:00" / "-1:00" text tween above both pets when a steal lands.
+- **Custom "tung tung tung" SFX** — currently using Roblox's `impact_water.mp3` placeholder. Find or upload a real tung-tung-tung sound and set `body.StepSound.SoundId` in PetService (or wherever it's created in ActionService.startWalk).
+- **Publish for friends to play** — File → Publish to Roblox.
+
+## Decisions made this session
+
+- **Map**: Suburban Streets template (not Modern City / Village).
+- **Pet summon model**: hotbar Tool, not auto-spawn on respawn. Equip = spawn, unequip = despawn. Age keeps ticking either way.
+- **Name modal**: shows on every server join, prefilled. (Later: Name *tile* was removed from the right-side menu; the join-modal still fires. Open question for tomorrow: do we want any naming at all, or remove the modal too?)
+- **Faces feature**: dropped entirely.
+- **HIDE billboard button**: dropped.
+- **Color tinting**: Highlight overlay (semitransparent fill) instead of BasePart.Color, because MeshPart.TextureID overrides Color.
+- **Walk default**: WALK starts automatically when the tool is equipped (no need to open the Actions panel each spawn).
+- **Hat loading**: prefer pre-imported templates in `ReplicatedStorage.Assets.Hats.<id>` over `InsertService:LoadAsset`, because Toolbox tiles are usually other people's uploads which fail with "User is not authorized to access Asset".
 
 ## Phase checklist
 
-- [x] **Phase A — Project skeleton** ✅ committed `9ebf837`, pushed to `origin/main`
-  - [x] Create folder on Desktop
-  - [x] Copy PLAN.md into project
-  - [x] Create progress.md + ONBOARDING.md
-  - [x] Write `default.project.json`
-  - [x] Create `src/` tree (ReplicatedStorage, ServerScriptService, StarterPlayer)
-  - [x] Write 8 `references/NN-*.md` screenshot cards + 6 PNGs under `references/screenshots/`
-  - [x] Stub `Catalog.lua`, `Remotes.lua`, `PetConfig.lua`
-  - [x] `.gitignore` + git init + GitHub remote set up
-- [x] **Phase B — Pet spawn + persistence (with offline aging)**
-  - [x] `PetService.server.lua` with DataStore + first-spawn name flow
-  - [x] Wall-clock Age: `Age = (os.time() - bornAtUnix) + bonusSeconds` — accrues while offline
-  - [x] Autosave loop (60s) + `BindToClose` flush + `PlayerRemoving` flush
-  - [x] Age `BillboardGui` ticking via Heartbeat (1Hz)
-  - [x] Placeholder pet model (gray Slate Part) until Tung mesh ID is uploaded
-  - [x] `NameModal.client.lua` — first-spawn popup
-  - [x] `SetName` remote + `GetPetState` remote-function
-  - [x] `applyAgeDeltaOffline` helper (used by Phase E.b Steal Time on offline victims)
-- [x] **Phase C — Right-side menu (6 tiles)** ✅
-- [x] **Phase D — Customization panels (Faces / Name+Color+Hide / Hats)** ✅
-- [x] **Phase E — Actions (Walk + Carry) + Steal Time** ✅
-  - [x] WALK (PathfindingService follow)
-  - [x] CARRY (WeldConstraint to RightHand, humanoid disabled)
-  - [x] **Steal Time** via ProximityPrompt on each pet → `ActionService.tryTransfer` with per-victim cooldown, offline-victim support via `applyAgeDeltaOffline`
-- [x] **Phase F — Admin pack** ✅
-  - [x] `ProcessReceipt` for `AdminProductId` grants persistent `hasAdmin`
-  - [x] Invisible / +10 Speed / Pull Out All / **Steal All…** (AOE wrapper)
-- [ ] **Phase G — Tung Tung Tung Sahur theming pass**
-  - [x] Tool renamed to "Tung Tung Tung Sahur"
-  - [x] Name modal title says "Name Your Tung Tung Tung Sahur!"
-  - [x] `PetService` auto-uses MeshPart when `PetMeshId` is filled in, falls back to Slate placeholder otherwise
-  - [ ] **You:** find a Tung Tung Tung Sahur model on Roblox Toolbox, copy its asset ID into `PetConfig.PetMeshId`
-
-## Open questions / blockers
-
-- Roblox asset IDs for the Tung Tung Tung Sahur mesh, face decals, and hat accessories — user needs to upload these and paste IDs into `Catalog.lua`.
-- Developer Product ID for the Admin Pack — created via Studio after the place is published.
+- [x] **Phase A — Project skeleton** ✅
+- [x] **Phase B — Pet spawn + persistence + wall-clock offline age** ✅
+- [x] **Phase B.5 — Hotbar Tool + name modal on every join** ✅
+- [x] **Phase C — Right-side menu** ✅ (4 tiles after Faces and Name were dropped)
+- [x] **Phase D — Customization panels** ✅ (Color + Hats; Faces dropped)
+- [x] **Phase E — Actions + Steal Time** ✅
+- [x] **Phase F — Admin pack** ✅ (code complete; needs Developer Product setup in Studio)
+- [x] **Phase G — Tung mesh swap** ✅
+- [x] **Polish — walk leash, carry pose, steal prompt hide, step animation, color highlight** ✅
+- [ ] **Hat import** — Chef imported. 11 more to go.
+- [ ] **Optional: Admin Pack product, custom SFX, steal visual feedback, publish**
 
 ## Session log
 
 ### 2026-05-15
+
+Marathon session. Started with empty desktop folder, ended with a fully playable game on the user's account.
+
 - Approved PLAN.md.
-- Copied plan into project folder; created progress.md and ONBOARDING.md.
-- Added two mechanics to the spec: **wall-clock offline aging** (pet keeps aging while server/owner is offline) and **Steal Time** (any player can drain seconds from another player's pet; the Admin "Steal All…" button is the AOE version). Re-synced PLAN.md.
-- Phase A scaffold landed (commit `9ebf837`, pushed). 27 files: project descriptor, plan docs, 8 reference cards + 6 PNGs, three shared Lua modules.
-- Decided to use the **Suburban Streets** Studio template as the map. Switched `default.project.json` to `$ignoreUnknownInstances` on Workspace/ServerStorage/StarterGui so Rojo won't fight the template's contents.
-- Phase B landed: `PetService.server.lua` (DataStore load/save, autosave, offline aging via `bornAtUnix + bonusSeconds`, `applyAgeDeltaOffline` for offline-victim steals, placeholder pet model + Age billboard ticking once per second) and `NameModal.client.lua` (first-spawn popup wired to `RequestName` / `SetName`).
-- Phase B.5 + name-modal-every-join pushed.
-- **Phases C–F + most of G landed in one block:**
-  - C: `PanelController`, `PanelBase`, `PetMenu.client.lua` (6 right-side tiles with single-open behavior + active highlight).
-  - D: `FacesPanel`, `NameColorPanel` (with HIDE toggle), `HatsPanel`. Server `PetService` now handles `SetColor`/`SetFace`/`SetHat`/`ToggleHideName` with Catalog validation.
-  - E: `ActionService.server.lua` — Walk (PathfindingService), Carry (WeldConstraint), Steal Time via ProximityPrompt on every pet, offline-victim support, per-victim cooldown. `ActionsPanel.client.lua`. Pet model now has Humanoid + HumanoidRootPart + StealPrompt.
-  - F: `AdminService.server.lua` — `ProcessReceipt` for `AdminProductId`, four abilities (Invisible / SpeedBoost / PullOutAll / StealAll). `AdminPanel.client.lua` fires `DoAdminAbility`; server prompts purchase if not owned.
-  - G partial: tool renamed, modal title themed, `buildPlaceholderModel` switches to MeshPart automatically when `PetConfig.PetMeshId` is set.
-- Next: user uploads/finds Tung mesh ID → 1-line PetConfig edit → done.
+- Phase A: project skeleton, references, shared stubs (commit `9ebf837`).
+- Phase B: PetService + DataStore + wall-clock offline aging + first-spawn name modal (commit `551af3d`).
+- Phase B.5: pet became a hotbar Tool (`8fe7b9b`); name modal fires every join (`3a244f0`).
+- Decision: Suburban Streets template, saved as the user's place.
+- Phases C–F + most of G in one block (commit `ee81633`): right-side menu, Faces/NameColor/Hats/Actions/Admin panels, walk + carry + steal time, admin abilities.
+- Phase G mesh wired (`fbaa0f8`); ran into NotAccessible capability error, switched to AssetService (`6f13119`), then realized user copied Asset ID (not Mesh ID) and switched to InsertService (`283b04c`). Mesh appeared.
+- Polish: walk leash visual, carry-on-hand pose, hide own steal prompt (`187c3a3`).
+- Locomotion swap: Tung is a single MeshPart not an R15 rig, so Humanoid.MoveTo was spinning him. Replaced with LinearVelocity + AlignOrientation. Auto-walk on equip. Carry uses Motor6D from HRP (`3511e66`).
+- Step animation + footstep sound (`b2be880`); lowered spawn (`38496d7`).
+- Hat attachment code + 9 hat asset IDs (`37010bf`). Tested Toolbox tile IDs — most worked, the 14–15 digit ones did not (those are catalog IDs, not asset IDs).
+- 3 more hat IDs added (`acc9e14`).
+- Hat thumbnails on buttons via `rbxthumb://`, carry refactored to use HRP, surfaced LoadAsset errors to Output (`8b92234`).
+- Faces feature dropped (`92d2d02`).
+- Discovered Toolbox-hat assets throw "User is not authorized to access Asset". Switched to template-first lookup (`ReplicatedStorage.Assets.Hats.<id>`) (`3f66840`).
+- Name feature dropped, Color tint fixed via Highlight overlay, HIDE button dropped (`b5f16b3`, `cbc909c`).
+- HatAttachment nudged to better fit Tung (`7af859b`).
+- Chef Hat manually imported by user — appears on Tung's head, slightly off-center (user reports).
+- **Stopped here.** 11 hats left to import. Other unfinished items: dev product setup, custom SFX, steal feedback, publish.
+
+### 2026-05-16 (planned)
+
+- Verify Chef Hat now sits correctly with the latest attachment nudge.
+- Import the remaining 11 hats.
+- Decide: keep name modal or remove it entirely.
+- Stretch: Admin Pack dev product setup; custom tung SFX; steal feedback; publish.

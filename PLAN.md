@@ -1,5 +1,16 @@
 # Plan: "My Pet Tung Tung Tung Sahur" — Roblox reskin of *My Pet Rock*
 
+> **2026-05-15 update** — this plan was approved and most of it shipped. Some scope was dropped or changed in implementation. **Read [progress.md](progress.md) for the current state of the game.** This file is preserved as historical context.
+>
+> **Diffs from this plan to what actually shipped:**
+> - **Faces feature dropped** (user decision).
+> - **Name tile dropped** from the right-side menu. Name *modal* still fires on every join. Open question for tomorrow.
+> - **HIDE button dropped**.
+> - **Color tinting** uses a `Highlight` instance overlay, not `BasePart.Color`, because the Tung MeshPart has a baked TextureID that overrides Color.
+> - **Locomotion** uses `LinearVelocity` + `AlignOrientation`, not `Humanoid.MoveTo` — Tung is a single MeshPart, not an R6/R15 rig, so Humanoid was spinning him.
+> - **Auto-walk** on tool equip (not just when Actions panel is opened).
+> - **Hat loading** prefers pre-imported templates in `ReplicatedStorage.Assets.Hats` over `InsertService:LoadAsset`, because most Toolbox assets aren't loadable via InsertService (auth error).
+
 ## Context
 
 The user wants to build a Roblox game that is a feature-for-feature reskin of *My Pet Rock*, but where the pet is **Tung Tung Tung Sahur** (the Italian brainrot wooden-bat character) instead of a rock. They shared 8 screenshots of the reference game; this plan captures every UI/feature visible in those shots and lays out how to implement them in a fresh Roblox project at `c:\Users\janfo\OneDrive\Desktop\My Pet Tung Tung Tung Sahur`.
