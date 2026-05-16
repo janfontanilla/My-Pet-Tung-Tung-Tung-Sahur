@@ -315,15 +315,22 @@ local function applyVisuals(model: Model, rec: PetRecord, ownerName: string)
 		and hatEntry.accessory ~= "rbxassetid://0" then
 		local idNum = tonumber(string.match(hatEntry.accessory, "%d+"))
 		if idNum then
-			local ok, loaded = pcall(function()
+			local ok, loadedOrErr = pcall(function()
 				return game:GetService("InsertService"):LoadAsset(idNum)
 			end)
-			if ok and loaded then
+			if not ok then
+				warn("[PetService] LoadAsset failed for hat", hatEntry.id, "(id", idNum, "):", loadedOrErr)
+			else
+				local loaded = loadedOrErr :: Instance
+				-- Find a MeshPart anywhere in the tree (Accessory > Handle is
+				-- usually a MeshPart; some uploads put it under a Model)
 				local mesh: BasePart? = nil
 				for _, d in ipairs(loaded:GetDescendants()) do
-					if d:IsA("MeshPart") or d:IsA("Part") then
-						mesh = d :: BasePart
-						if d:IsA("MeshPart") then break end
+					if d:IsA("MeshPart") then mesh = d :: BasePart; break end
+				end
+				if not mesh then
+					for _, d in ipairs(loaded:GetDescendants()) do
+						if d:IsA("BasePart") then mesh = d :: BasePart; break end
 					end
 				end
 				if mesh then
@@ -332,6 +339,9 @@ local function applyVisuals(model: Model, rec: PetRecord, ownerName: string)
 					hatPart.Anchored = false
 					hatPart.CanCollide = false
 					hatPart.Massless = true
+					-- Scale down hats to fit a small pet head (Roblox hats are
+					-- sized for ~5-stud avatar heads; Tung's head is bigger so
+					-- we leave them at native size for now and let user tune)
 					local hatAttachInBody = body:FindFirstChild("HatAttachment") :: Attachment?
 					if hatAttachInBody then
 						hatPart.CFrame = hatAttachInBody.WorldCFrame
@@ -343,6 +353,8 @@ local function applyVisuals(model: Model, rec: PetRecord, ownerName: string)
 					w.Part0 = hatPart
 					w.Part1 = body
 					w.Parent = hatPart
+				else
+					warn("[PetService] No BasePart found in loaded asset for hat", hatEntry.id)
 				end
 				loaded:Destroy()
 			end

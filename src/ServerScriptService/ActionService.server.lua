@@ -179,9 +179,10 @@ local function startCarry(player: Player)
 	local pet = getPet(player.UserId)
 	if not pet then return end
 	local body = pet:FindFirstChild("Body") :: BasePart?
+	local hrp = char:FindFirstChild("HumanoidRootPart") :: BasePart?
 	local hand = char:FindFirstChild("RightHand") :: BasePart?
 		or char:FindFirstChild("Right Arm") :: BasePart?
-	if not body or not hand then return end
+	if not body or not hrp or not hand then return end
 
 	-- Disable mover constraints while carried
 	local vel = body:FindFirstChild("WalkVelocity") :: LinearVelocity?
@@ -191,20 +192,20 @@ local function startCarry(player: Player)
 	body.CanCollide = false
 	body.Massless = true
 
-	-- Sit Tung on top of the player's hand. The mesh's pivot can be anywhere
-	-- inside the bounding box, so use Size.Y/2 PLUS a buffer so feet clear
-	-- the wrist visually. Position him slightly forward of the wrist too.
-	local liftY = (body.Size.Y * 0.5) + (hand.Size.Y * 0.5) + 0.2
+	-- Attach Tung relative to the HumanoidRootPart (which has stable
+	-- world-up orientation) rather than the hand bone (which twists with
+	-- player animations). Position him above the right hand's world spot.
+	local liftY = (body.Size.Y * 0.5) + 0.2
 
 	local motor = Instance.new("Motor6D")
 	motor.Name = "CarryMotor"
-	motor.Part0 = hand
+	motor.Part0 = hrp
 	motor.Part1 = body
-	-- C0/C1 control offset & rotation. Tung faces same way the hand "points"
-	-- forward, sitting on the wrist.
-	motor.C0 = CFrame.new(0, liftY, 0) * CFrame.Angles(0, 0, 0)
+	-- HRP-local: 1.5 to the right, slightly above shoulder height, slightly
+	-- in front. Tung faces the same direction the player is facing.
+	motor.C0 = CFrame.new(1.5, 1.0 + liftY, -0.5)
 	motor.C1 = CFrame.new(0, 0, 0)
-	motor.Parent = hand
+	motor.Parent = hrp
 	carryWelds[player.UserId] = motor :: any
 
 	activeState[player.UserId] = "carry"

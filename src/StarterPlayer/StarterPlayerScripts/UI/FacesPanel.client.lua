@@ -32,9 +32,15 @@ for i, face in ipairs(Catalog.Faces) do
 	local btn = Instance.new("ImageButton")
 	btn.LayoutOrder = i
 	btn.BackgroundColor3 = Color3.fromRGB(140, 140, 140)
-	btn.Image = face.decal -- works once asset IDs are filled in
 	btn.ScaleType = Enum.ScaleType.Fit
 	btn.AutoButtonColor = true
+	-- Use rbxthumb when the decal asset id is set, otherwise leave gray
+	if type(face.decal) == "string" then
+		local idNum = string.match(face.decal, "%d+")
+		if idNum and idNum ~= "0" then
+			btn.Image = string.format("rbxthumb://type=Asset&id=%s&w=150&h=150", idNum)
+		end
+	end
 	btn.Parent = scroll
 
 	local corner = Instance.new("UICorner")

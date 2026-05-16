@@ -29,19 +29,40 @@ grid.HorizontalAlignment = Enum.HorizontalAlignment.Center
 grid.Parent = scroll
 
 for i, hat in ipairs(Catalog.Hats) do
-	local btn = Instance.new("TextButton")
+	local btn = Instance.new("ImageButton")
 	btn.LayoutOrder = i
 	btn.BackgroundColor3 = Color3.fromRGB(140, 140, 140)
 	btn.AutoButtonColor = true
-	btn.Font = Enum.Font.FredokaOne
-	btn.TextScaled = true
-	btn.TextColor3 = Color3.new(1, 1, 1)
-	btn.Text = hat.name
+	btn.ScaleType = Enum.ScaleType.Fit
 	btn.Parent = scroll
+
+	-- Asset thumbnail via rbxthumb:// — works for any asset id
+	if hat.accessory and type(hat.accessory) == "string" then
+		local idNum = string.match(hat.accessory, "%d+")
+		if idNum and idNum ~= "0" then
+			btn.Image = string.format("rbxthumb://type=Asset&id=%s&w=150&h=150", idNum)
+		end
+	end
 
 	local corner = Instance.new("UICorner")
 	corner.CornerRadius = UDim.new(0, 10)
 	corner.Parent = btn
+
+	local label = Instance.new("TextLabel")
+	label.AnchorPoint = Vector2.new(0.5, 1)
+	label.Position = UDim2.new(0.5, 0, 1, -4)
+	label.Size = UDim2.new(1, -8, 0, 32)
+	label.BackgroundTransparency = 0.4
+	label.BackgroundColor3 = Color3.new(0, 0, 0)
+	label.Font = Enum.Font.FredokaOne
+	label.TextScaled = true
+	label.TextColor3 = Color3.new(1, 1, 1)
+	label.Text = hat.name
+	label.Parent = btn
+
+	local lcorner = Instance.new("UICorner")
+	lcorner.CornerRadius = UDim.new(0, 6)
+	lcorner.Parent = label
 
 	btn.Activated:Connect(function()
 		Remotes.event("SetHat"):FireServer(hat.id)
