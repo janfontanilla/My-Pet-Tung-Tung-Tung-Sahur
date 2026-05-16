@@ -231,26 +231,29 @@ local function buildPlaceholderModel(): Model
 	prompt.RequiresLineOfSight = false
 	prompt.Parent = body
 
-	-- Humanoid + HumanoidRootPart so the pet can be moved by PathfindingService.
-	local hrp = Instance.new("Part")
-	hrp.Name = "HumanoidRootPart"
-	hrp.Size = Vector3.new(2, 2, 1)
-	hrp.Transparency = 1
-	hrp.CanCollide = false
-	hrp.Massless = true
-	hrp.Parent = model
+	-- We don't use a Humanoid for locomotion; ActionService moves the pet
+	-- with a LinearVelocity since the Tung mesh isn't an R6/R15 rig.
+	-- Pre-create the mover instances; ActionService toggles their Enabled.
+	local moveAttach = Instance.new("Attachment")
+	moveAttach.Name = "MoveAttach"
+	moveAttach.Parent = body
 
-	local weld = Instance.new("WeldConstraint")
-	weld.Part0 = hrp
-	weld.Part1 = body
-	weld.Parent = hrp
-	hrp.CFrame = body.CFrame
+	local linearVel = Instance.new("LinearVelocity")
+	linearVel.Name = "WalkVelocity"
+	linearVel.Attachment0 = moveAttach
+	linearVel.MaxForce = math.huge
+	linearVel.VectorVelocity = Vector3.zero
+	linearVel.Enabled = false
+	linearVel.Parent = body
 
-	local humanoid = Instance.new("Humanoid")
-	humanoid.RigType = Enum.HumanoidRigType.R15
-	humanoid.WalkSpeed = PetConfig.WalkSpeed
-	humanoid.AutoRotate = true
-	humanoid.Parent = model
+	local alignOrient = Instance.new("AlignOrientation")
+	alignOrient.Name = "FaceForward"
+	alignOrient.Attachment0 = moveAttach
+	alignOrient.Mode = Enum.OrientationAlignmentMode.OneAttachment
+	alignOrient.MaxTorque = math.huge
+	alignOrient.Responsiveness = 20
+	alignOrient.Enabled = false
+	alignOrient.Parent = body
 
 	-- Floating UI: Age + Name billboard
 	local bb = Instance.new("BillboardGui")
@@ -389,9 +392,20 @@ local function giveSummonTool(player: Player)
 		local rec = liveRecords[player.UserId]
 		if rec then
 			spawnPetForPlayer(player, rec)
+			-- Auto-start walk so Tung follows you on a leash immediately.
+			task.defer(function()
+				local svc = _G.ActionService
+				if svc and svc.startWalk then
+					svc.startWalk(player)
+				end
+			end)
 		end
 	end)
 	tool.Unequipped:Connect(function()
+		local svc = _G.ActionService
+		if svc and svc.stopWalk then
+			svc.stopWalk(player)
+		end
 		despawnPetForPlayer(player.UserId)
 	end)
 end

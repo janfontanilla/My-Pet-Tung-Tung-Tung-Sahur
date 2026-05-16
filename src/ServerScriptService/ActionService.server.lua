@@ -38,11 +38,21 @@ end
 ----------------------------------------------------------------
 -- WALK: follow owner with a visible leash
 ----------------------------------------------------------------
+local function findHandPart(char: Model): BasePart?
+	-- R15 first, then R6 fallback (R6 calls it "Right Arm")
+	local r15 = char:FindFirstChild("RightHand") :: BasePart?
+	if r15 then return r15 end
+	local r6 = char:FindFirstChild("Right Arm") :: BasePart?
+	if r6 then return r6 end
+	-- last resort: torso/HRP so the leash is at least visible
+	return char:FindFirstChild("HumanoidRootPart") :: BasePart?
+end
+
 local function attachLeash(player: Player, pet: Model)
 	local char = player.Character
 	if not char then return end
 	local body = pet:FindFirstChild("Body") :: BasePart?
-	local hand = char:FindFirstChild("RightHand") :: BasePart?
+	local hand = findHandPart(char)
 	if not body or not hand then return end
 
 	local handAtt = Instance.new("Attachment")
@@ -57,13 +67,15 @@ local function attachLeash(player: Player, pet: Model)
 	local beam = Instance.new("Beam")
 	beam.Attachment0 = handAtt
 	beam.Attachment1 = petAtt
-	beam.Width0 = 0.08
-	beam.Width1 = 0.08
+	beam.Width0 = 0.25
+	beam.Width1 = 0.25
 	beam.FaceCamera = true
-	beam.Color = ColorSequence.new(Color3.fromRGB(80, 50, 20))
-	beam.Transparency = NumberSequence.new(0.1)
-	beam.Segments = 4
-	beam.Parent = body
+	beam.LightEmission = 0.2
+	beam.LightInfluence = 0
+	beam.Color = ColorSequence.new(Color3.fromRGB(120, 70, 30))
+	beam.Transparency = NumberSequence.new(0)
+	beam.Segments = 6
+	beam.Parent = workspace -- Beam must be in workspace, not nested under a moving Part
 
 	leashBeams[player.UserId] = beam
 	leashAttachs[player.UserId] = { handAtt, petAtt }
@@ -83,42 +95,40 @@ end
 local function startWalk(player: Player)
 	activeState[player.UserId] = "walk"
 	local pet = getPet(player.UserId)
-	if pet then attachLeash(player, pet) end
+	if not pet then return end
+	attachLeash(player, pet)
+
+	local body = pet:FindFirstChild("Body") :: BasePart?
+	local vel = body and body:FindFirstChild("WalkVelocity") :: LinearVelocity?
+	local orient = body and body:FindFirstChild("FaceForward") :: AlignOrientation?
+	if not body or not vel or not orient then return end
+	vel.Enabled = true
+	orient.Enabled = true
+
 	task.spawn(function()
 		while activeState[player.UserId] == "walk" do
-			pet = getPet(player.UserId)
 			local char = player.Character
-			if not pet or not char then break end
-			local petHrp = pet:FindFirstChild("HumanoidRootPart") :: BasePart?
-			local petHum = pet:FindFirstChildOfClass("Humanoid")
-			local ownerHrp = char:FindFirstChild("HumanoidRootPart") :: BasePart?
-			if not petHrp or not petHum or not ownerHrp then break end
+			local ownerHrp = char and char:FindFirstChild("HumanoidRootPart") :: BasePart?
+			if not ownerHrp or not body.Parent then break end
 
-			-- Walk to a position just behind+right of the owner ("at heel")
-			local heel = ownerHrp.CFrame * CFrame.new(2, 0, 3) -- right & behind
-			local dist = (heel.Position - petHrp.Position).Magnitude
-			if dist > 2.5 then
-				local ok, path = pcall(function()
-					local p = PathfindingService:CreatePath({
-						AgentRadius = 2,
-						AgentHeight = 5,
-						AgentCanJump = true,
-					})
-					p:ComputeAsync(petHrp.Position, heel.Position)
-					return p
-				end)
-				if ok and path and path.Status == Enum.PathStatus.Success then
-					for _, wp in ipairs(path:GetWaypoints()) do
-						if activeState[player.UserId] ~= "walk" then break end
-						petHum:MoveTo(wp.Position)
-						petHum.MoveToFinished:Wait()
-					end
-				else
-					petHum:MoveTo(heel.Position)
-				end
+			-- Target heel position: 2 studs right & 3 behind owner
+			local heel = ownerHrp.CFrame * CFrame.new(2, 0, 3)
+			local toHeel = heel.Position - body.Position
+			-- Stay grounded on Y
+			toHeel = Vector3.new(toHeel.X, 0, toHeel.Z)
+			local dist = toHeel.Magnitude
+			if dist > 1.5 then
+				local dir = toHeel.Unit
+				vel.VectorVelocity = dir * PetConfig.WalkSpeed
+				-- Face the direction we're walking
+				orient.CFrame = CFrame.lookAt(Vector3.zero, dir)
+			else
+				vel.VectorVelocity = Vector3.zero
 			end
-			task.wait(1 / PetConfig.WalkUpdateHz)
+			task.wait(0.1)
 		end
+		if vel.Parent then vel.Enabled = false; vel.VectorVelocity = Vector3.zero end
+		if orient.Parent then orient.Enabled = false end
 	end)
 end
 
@@ -138,29 +148,34 @@ local function startCarry(player: Player)
 	local pet = getPet(player.UserId)
 	if not pet then return end
 	local body = pet:FindFirstChild("Body") :: BasePart?
-	local hand = char:FindFirstChild(PetConfig.CarryAttachment) :: BasePart?
+	local hand = char:FindFirstChild("RightHand") :: BasePart?
+		or char:FindFirstChild("Right Arm") :: BasePart?
 	if not body or not hand then return end
 
-	-- Disable humanoid movement while carried
-	local hum = pet:FindFirstChildOfClass("Humanoid")
-	if hum then
-		hum.PlatformStand = true
-		hum.WalkSpeed = 0
-	end
+	-- Disable mover constraints while carried
+	local vel = body:FindFirstChild("WalkVelocity") :: LinearVelocity?
+	local orient = body:FindFirstChild("FaceForward") :: AlignOrientation?
+	if vel then vel.Enabled = false; vel.VectorVelocity = Vector3.zero end
+	if orient then orient.Enabled = false end
 	body.CanCollide = false
+	body.Massless = true
 
-	-- Stand the pet upright on top of the player's right hand, facing forward
-	-- relative to the hand. The hand's local +Y is "up" through the wrist.
-	local liftY = body.Size.Y / 2 + hand.Size.Y / 2
-	body.CFrame = hand.CFrame
-		* CFrame.new(0, liftY, 0)
-		* CFrame.Angles(0, math.pi, 0) -- face same way as player
+	-- Sit Tung on top of the player's hand. The mesh's pivot can be anywhere
+	-- inside the bounding box, so use Size.Y/2 PLUS a buffer so feet clear
+	-- the wrist visually. Position him slightly forward of the wrist too.
+	local liftY = (body.Size.Y * 0.5) + (hand.Size.Y * 0.5) + 0.2
 
-	local weld = Instance.new("WeldConstraint")
-	weld.Part0 = body
-	weld.Part1 = hand
-	weld.Parent = body
-	carryWelds[player.UserId] = weld
+	local motor = Instance.new("Motor6D")
+	motor.Name = "CarryMotor"
+	motor.Part0 = hand
+	motor.Part1 = body
+	-- C0/C1 control offset & rotation. Tung faces same way the hand "points"
+	-- forward, sitting on the wrist.
+	motor.C0 = CFrame.new(0, liftY, 0) * CFrame.Angles(0, 0, 0)
+	motor.C1 = CFrame.new(0, 0, 0)
+	motor.Parent = hand
+	carryWelds[player.UserId] = motor :: any
+
 	activeState[player.UserId] = "carry"
 end
 
@@ -173,11 +188,9 @@ local function stopCarry(player: Player)
 	local pet = getPet(player.UserId)
 	if pet then
 		local body = pet:FindFirstChild("Body") :: BasePart?
-		if body then body.CanCollide = true end
-		local hum = pet:FindFirstChildOfClass("Humanoid")
-		if hum then
-			hum.PlatformStand = false
-			hum.WalkSpeed = PetConfig.WalkSpeed
+		if body then
+			body.CanCollide = true
+			body.Massless = false
 		end
 	end
 	activeState[player.UserId] = "idle"
@@ -303,8 +316,12 @@ workspace.ChildAdded:Connect(function(c)
 	end
 end)
 
--- Expose the steal helper for AdminService's "Steal All..." AOE wrapper
+-- Expose internals for cross-script use (PetService auto-walk, AdminService steal_all)
 _G.ActionService = {
 	tryTransfer = tryTransfer,
 	getPet      = getPet,
+	startWalk   = startWalk,
+	stopWalk    = stopWalk,
+	startCarry  = startCarry,
+	stopCarry   = stopCarry,
 }
