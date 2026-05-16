@@ -105,7 +105,21 @@ local function startWalk(player: Player)
 	vel.Enabled = true
 	orient.Enabled = true
 
+	-- Optional footstep sound. Replace SoundId in PetConfig if you want a
+	-- custom "tung" SFX; if left default, this just plays Roblox's bonk.
+	local step = body:FindFirstChild("StepSound") :: Sound?
+	if not step then
+		step = Instance.new("Sound")
+		step.Name = "StepSound"
+		step.SoundId = "rbxasset://sounds/impact_water.mp3"
+		step.Volume = 0.4
+		step.RollOffMaxDistance = 40
+		step.Parent = body
+	end
+
 	task.spawn(function()
+		local stepStart = os.clock()
+		local lastStepPhase = 0
 		while activeState[player.UserId] == "walk" do
 			local char = player.Character
 			local ownerHrp = char and char:FindFirstChild("HumanoidRootPart") :: BasePart?
@@ -114,18 +128,35 @@ local function startWalk(player: Player)
 			-- Target heel position: 2 studs right & 3 behind owner
 			local heel = ownerHrp.CFrame * CFrame.new(2, 0, 3)
 			local toHeel = heel.Position - body.Position
-			-- Stay grounded on Y
 			toHeel = Vector3.new(toHeel.X, 0, toHeel.Z)
 			local dist = toHeel.Magnitude
-			if dist > 1.5 then
+
+			local moving = dist > 1.5
+			if moving then
 				local dir = toHeel.Unit
 				vel.VectorVelocity = dir * PetConfig.WalkSpeed
-				-- Face the direction we're walking
-				orient.CFrame = CFrame.lookAt(Vector3.zero, dir)
+				-- Stepping animation: bob up/down + rock left/right at ~2Hz.
+				-- We bake the bob into the orientation CFrame by feeding a
+				-- rocked lookAt; the up/down is achieved with a tiny rotation
+				-- around the local right axis ("nodding" forward as he steps).
+				local t = (os.clock() - stepStart) * 6 -- step rate
+				local nod  = math.sin(t) * math.rad(10)  -- forward/back rock
+				local sway = math.cos(t * 2) * math.rad(6) -- side-to-side
+				local base = CFrame.lookAt(Vector3.zero, dir)
+				orient.CFrame = base * CFrame.Angles(nod, 0, sway)
+				-- Play a step sound on each downbeat (sin crossing 0 going down)
+				local phase = math.floor(t / math.pi)
+				if phase ~= lastStepPhase then
+					lastStepPhase = phase
+					if step then step:Play() end
+				end
 			else
 				vel.VectorVelocity = Vector3.zero
+				-- Idle: gently settle upright, no bob
+				local fwd = body.CFrame.LookVector
+				orient.CFrame = CFrame.lookAt(Vector3.zero, Vector3.new(fwd.X, 0, fwd.Z).Unit)
 			end
-			task.wait(0.1)
+			task.wait(0.05) -- 20Hz for smooth bob
 		end
 		if vel.Parent then vel.Enabled = false; vel.VectorVelocity = Vector3.zero end
 		if orient.Parent then orient.Enabled = false end
