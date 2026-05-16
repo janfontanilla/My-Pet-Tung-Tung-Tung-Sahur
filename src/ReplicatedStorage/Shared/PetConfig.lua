@@ -5,8 +5,8 @@
 local PetConfig = {}
 
 -- Pet model — fill in after uploading the Tung Tung Tung Sahur mesh + texture.
-PetConfig.PetMeshId    = "rbxassetid://0" -- TODO_TUNG_MESH_ID
-PetConfig.PetTextureId = "rbxassetid://0" -- TODO_TUNG_TEXTURE_ID
+PetConfig.PetMeshId    = "rbxassetid://138151705692565"
+PetConfig.PetTextureId = "rbxassetid://0" -- TODO_TUNG_TEXTURE_ID (optional)
 PetConfig.PetScale     = Vector3.new(1, 1, 1)
 
 -- Spawning
