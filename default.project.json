@@ -27,17 +27,15 @@
     },
 
     "Workspace": {
-      "$className": "Workspace",
-      "$properties": {
-        "FilteringEnabled": true
-      }
+      "$ignoreUnknownInstances": true
     },
 
-    "HttpService": {
-      "$className": "HttpService",
-      "$properties": {
-        "HttpEnabled": true
-      }
+    "ServerStorage": {
+      "$ignoreUnknownInstances": true
+    },
+
+    "StarterGui": {
+      "$ignoreUnknownInstances": true
     }
   }
 }

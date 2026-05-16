@@ -9,26 +9,32 @@ Onboarding for new contributors / future Claude sessions: [ONBOARDING.md](ONBOAR
 
 ## Status snapshot
 
-- **Current phase:** Phase A — Project skeleton
+- **Current phase:** Phase C — Right-side 6-tile PetMenu UI
 - **Last updated:** 2026-05-15
-- **Next action:** Scaffold `default.project.json`, `src/` tree, and the 8 `references/*.md` cards.
+- **Next action:** Build `PetMenu.client.lua` (the right-edge column with Faces / Name / Color / Actions / Admin / Hats tiles + the single-panel-open controller).
+- **GitHub:** https://github.com/janfontanilla/My-Pet-Tung-Tung-Tung-Sahur — push at end of every phase.
+- **Map:** Suburban Streets preset. Create the place via Studio → File → New → Suburban Streets → Save to Roblox As… "My Pet Tung Tung Tung Sahur". Rojo's `default.project.json` uses `$ignoreUnknownInstances` so syncing won't disturb the map.
 
 ## Phase checklist
 
-- [ ] **Phase A — Project skeleton**
+- [x] **Phase A — Project skeleton** ✅ committed `9ebf837`, pushed to `origin/main`
   - [x] Create folder on Desktop
   - [x] Copy PLAN.md into project
   - [x] Create progress.md + ONBOARDING.md
-  - [ ] Write `default.project.json`
-  - [ ] Create `src/` tree (ReplicatedStorage, ServerScriptService, StarterPlayer)
-  - [ ] Write 8 `references/NN-*.md` screenshot cards
-  - [ ] Stub `Catalog.lua`, `Remotes.lua`, `PetConfig.lua`
-- [ ] **Phase B — Pet spawn + persistence (with offline aging)**
-  - [ ] `PetService.lua` with DataStore + first-spawn name flow
-  - [ ] Wall-clock Age: `Age = (os.time() - bornAtUnix) + bonusSeconds` — accrues while offline
-  - [ ] Autosave loop (60s) + flush on `PlayerRemoving`
-  - [ ] Age `BillboardGui` ticking via Heartbeat
-  - [ ] `TODO_TUNG_MESH_ID` placeholder wired
+  - [x] Write `default.project.json`
+  - [x] Create `src/` tree (ReplicatedStorage, ServerScriptService, StarterPlayer)
+  - [x] Write 8 `references/NN-*.md` screenshot cards + 6 PNGs under `references/screenshots/`
+  - [x] Stub `Catalog.lua`, `Remotes.lua`, `PetConfig.lua`
+  - [x] `.gitignore` + git init + GitHub remote set up
+- [x] **Phase B — Pet spawn + persistence (with offline aging)**
+  - [x] `PetService.server.lua` with DataStore + first-spawn name flow
+  - [x] Wall-clock Age: `Age = (os.time() - bornAtUnix) + bonusSeconds` — accrues while offline
+  - [x] Autosave loop (60s) + `BindToClose` flush + `PlayerRemoving` flush
+  - [x] Age `BillboardGui` ticking via Heartbeat (1Hz)
+  - [x] Placeholder pet model (gray Slate Part) until Tung mesh ID is uploaded
+  - [x] `NameModal.client.lua` — first-spawn popup
+  - [x] `SetName` remote + `GetPetState` remote-function
+  - [x] `applyAgeDeltaOffline` helper (used by Phase E.b Steal Time on offline victims)
 - [ ] **Phase C — Right-side menu (6 tiles)**
 - [ ] **Phase D — Customization panels (Faces / Name+Color+Hide / Hats)**
 - [ ] **Phase E — Actions (Walk + Carry) + Steal Time**
@@ -50,4 +56,7 @@ Onboarding for new contributors / future Claude sessions: [ONBOARDING.md](ONBOAR
 - Approved PLAN.md.
 - Copied plan into project folder; created progress.md and ONBOARDING.md.
 - Added two mechanics to the spec: **wall-clock offline aging** (pet keeps aging while server/owner is offline) and **Steal Time** (any player can drain seconds from another player's pet; the Admin "Steal All…" button is the AOE version). Re-synced PLAN.md.
-- Next: scaffold the source tree and screenshot reference cards.
+- Phase A scaffold landed (commit `9ebf837`, pushed). 27 files: project descriptor, plan docs, 8 reference cards + 6 PNGs, three shared Lua modules.
+- Decided to use the **Suburban Streets** Studio template as the map. Switched `default.project.json` to `$ignoreUnknownInstances` on Workspace/ServerStorage/StarterGui so Rojo won't fight the template's contents.
+- Phase B landed: `PetService.server.lua` (DataStore load/save, autosave, offline aging via `bornAtUnix + bonusSeconds`, `applyAgeDeltaOffline` for offline-victim steals, placeholder pet model + Age billboard ticking once per second) and `NameModal.client.lua` (first-spawn popup wired to `RequestName` / `SetName`).
+- Next: Phase C — `PetMenu.client.lua` (right-side 6-tile column with single-panel-open controller).

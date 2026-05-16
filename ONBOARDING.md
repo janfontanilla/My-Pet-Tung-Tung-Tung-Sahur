@@ -33,6 +33,7 @@ If you don't use Rojo, you can paste each `.lua` file into the matching service 
 
 These can't be done from code — the user has to do them in Studio / on the Roblox site:
 
+0. **Create the place from the Suburban Streets template.** Roblox Studio → File → New → "Suburban Streets" → File → Save to Roblox As… → name it **"My Pet Tung Tung Tung Sahur"**. This is the map (roads, sidewalks, houses, pine trees) that matches the reference game's environment. The map lives on Roblox's servers; Rojo only syncs the scripts under `src/` into the existing services. `default.project.json` uses `$ignoreUnknownInstances` on Workspace/ServerStorage/StarterGui so the template's contents are safe from Rojo overwrites.
 1. **Upload assets** and paste their IDs into `src/ReplicatedStorage/Shared/Catalog.lua`:
    - Tung Tung Tung Sahur mesh + texture
    - 14 face decals
