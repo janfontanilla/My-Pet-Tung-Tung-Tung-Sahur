@@ -295,9 +295,28 @@ local function applyVisuals(model: Model, rec: PetRecord, ownerName: string)
 	local body = model:FindFirstChild("Body") :: BasePart?
 	if not body then return end
 
+	-- Color tint: MeshPart with a TextureID ignores BasePart.Color visually.
+	-- Workaround: use a Highlight instance as a glow tint. Default white +
+	-- transparent = no effect; any other color overlays the mesh.
 	local colorEntry = Catalog.ColorById[rec.colorId]
 	if colorEntry then
 		body.Color = colorEntry.color
+		local existing = model:FindFirstChild("ColorTint") :: Highlight?
+		if not existing then
+			existing = Instance.new("Highlight")
+			existing.Name = "ColorTint"
+			existing.Adornee = body
+			existing.DepthMode = Enum.HighlightDepthMode.Occluded
+			existing.FillTransparency = 0.55
+			existing.OutlineTransparency = 1
+			existing.Parent = model
+		end
+		if rec.colorId == "white" then
+			existing.FillTransparency = 1 -- effectively off
+		else
+			existing.FillTransparency = 0.55
+			existing.FillColor = colorEntry.color
+		end
 	end
 
 	local faceEntry = Catalog.FaceById[rec.faceId]
